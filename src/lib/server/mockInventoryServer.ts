@@ -2,9 +2,10 @@ import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import { RpcTarget, newWebSocketRpcSession, nodeHttpBatchRpcResponse } from 'capnweb';
 import { coffees as seedCoffees, type Coffee } from '$lib/data/fixtures';
+import { cloneCoffees, generateCoffee } from './coffeeGenerator';
 
 const API_PATH = '/rpc';
-const PORT = Number.parseInt(process.env.CAPNWEB_PORT ?? '8787', 10);
+const PORT = Number.parseInt(process.env.VITE_CAPNWEB_PORT ?? process.env.CAPNWEB_PORT ?? '8787', 10);
 
 type CoffeeListener = (items: Coffee[]) => void;
 
@@ -21,17 +22,17 @@ class Subscription extends RpcTarget {
   }
 }
 
-class CoffeeInventoryApi extends RpcTarget {
+class MockCoffeeInventoryApi extends RpcTarget {
   #listeners = new Set<CoffeeListener>();
   #coffees: Coffee[];
 
   constructor(initial: Coffee[]) {
     super();
-    this.#coffees = initial.map((coffee) => ({ ...coffee, tastingNotes: [...coffee.tastingNotes] }));
+    this.#coffees = cloneCoffees(initial);
   }
 
   listCoffees(): Coffee[] {
-    return this.#snapshot();
+    return cloneCoffees(this.#coffees);
   }
 
   getCoffee(id: string): Coffee | undefined {
@@ -39,24 +40,28 @@ class CoffeeInventoryApi extends RpcTarget {
   }
 
   subscribeToCoffees(listener: CoffeeListener): Subscription {
-    listener(this.#snapshot());
+    listener(cloneCoffees(this.#coffees));
     this.#listeners.add(listener);
     return new Subscription(() => this.#listeners.delete(listener));
   }
 
+  createDemoCoffee(): Coffee {
+    const created = generateCoffee();
+    this.#coffees.unshift(created);
+    this.#notify();
+    return { ...created, tastingNotes: [...created.tastingNotes] };
+  }
+
   bumpRandomStock(): void {
+    if (this.#coffees.length === 0) return;
     const target = this.#coffees[Math.floor(Math.random() * this.#coffees.length)];
     const delta = Math.random() < 0.5 ? -1 : 1;
     target.stock = Math.max(0, target.stock + delta);
     this.#notify();
   }
 
-  #snapshot(): Coffee[] {
-    return this.#coffees.map((coffee) => ({ ...coffee, tastingNotes: [...coffee.tastingNotes] }));
-  }
-
   #notify(): void {
-    const snapshot = this.#snapshot();
+    const snapshot = cloneCoffees(this.#coffees);
     for (const listener of this.#listeners) {
       listener(snapshot);
     }
@@ -69,10 +74,10 @@ function startServer(): Promise<void> {
   if (bootstrapPromise) return bootstrapPromise;
 
   bootstrapPromise = new Promise((resolve) => {
-    const api = new CoffeeInventoryApi(seedCoffees);
+    const api = new MockCoffeeInventoryApi(seedCoffees);
+
     const httpServer = http.createServer(async (request, response) => {
       if (request.headers.upgrade?.toLowerCase() === 'websocket') {
-        // WebSocket upgrade handled by ws.
         return;
       }
 
@@ -103,11 +108,15 @@ function startServer(): Promise<void> {
 
     const wsServer = new WebSocketServer({ server: httpServer });
     wsServer.on('connection', (socket) => {
-      // The `ws` package's socket implements the standard WebSocket interface at runtime.
       newWebSocketRpcSession(socket as unknown as WebSocket, api);
     });
 
+    httpServer.on('error', (error) => {
+      console.error('Mock inventory server failed to start', error);
+    });
+
     httpServer.listen(PORT, () => {
+      console.info(`[mock-inventory] listening on port ${PORT}`);
       resolve();
     });
 
@@ -121,8 +130,9 @@ function startServer(): Promise<void> {
 
 let initialized = false;
 
-export function ensureCapnwebServer() {
+export function ensureMockInventoryServer() {
   if (initialized) return;
   initialized = true;
+  console.info('[mock-inventory] bootstrapping local Capn Web server');
   void startServer();
 }

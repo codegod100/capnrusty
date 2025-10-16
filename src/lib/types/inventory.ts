@@ -8,4 +8,5 @@ export interface CoffeeInventoryApi {
   listCoffees(): Promise<Coffee[]>;
   getCoffee(id: string): Promise<Coffee | undefined>;
   subscribeToCoffees(callback: (items: Coffee[]) => void): Promise<CoffeeSubscription>;
+  createDemoCoffee(): Promise<Coffee>;
 }

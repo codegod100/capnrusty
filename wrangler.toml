@@ -1,0 +1,12 @@
+name = "capnweb-inventory"
+main = "src/worker/capnweb-worker.ts"
+compatibility_date = "2024-11-01"
+
+[durable_objects]
+bindings = [
+  { name = "COFFEE_INVENTORY", class_name = "CoffeeInventoryDurable" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CoffeeInventoryDurable"]

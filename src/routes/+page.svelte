@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { Coffee, RoastProfile } from '$lib/data/fixtures';
-  import { coffeesStore } from '$lib/stores/coffee';
+  import { coffeesStore, createDemoCoffee } from '$lib/stores/coffee';
 
   type RoastFilter = RoastProfile | 'all';
 
@@ -10,6 +11,9 @@
   let selectedId = $state<string | null>(null);
   let lastUpdated = $state<Date | null>(null);
   let coffees = $state<Coffee[]>([]);
+  let notification = $state<string | null>(null);
+  let isCreating = $state(false);
+  let notificationTimer: ReturnType<typeof setTimeout> | null = null;
 
   $effect(() => {
     const unsubscribe = coffeesStore.subscribe((value) => {
@@ -34,6 +38,39 @@
   const setSelection = (coffee: Coffee) => {
     selectedId = coffee.id;
   };
+
+  const triggerNotification = (message: string) => {
+    if (notificationTimer) {
+      clearTimeout(notificationTimer);
+    }
+    notification = message;
+    notificationTimer = setTimeout(() => {
+      notification = null;
+      notificationTimer = null;
+    }, 5000);
+  };
+
+  const handleCreate = async () => {
+    if (isCreating) return;
+
+    isCreating = true;
+    try {
+      const coffee = await createDemoCoffee();
+      selectedId = coffee.id;
+      triggerNotification(`New coffee "${coffee.name}" is ready to explore.`);
+    } catch (err) {
+      console.error('Failed to create demo coffee.', err);
+      triggerNotification('Could not brew a new coffee right now. Please try again.');
+    } finally {
+      isCreating = false;
+    }
+  };
+
+  onDestroy(() => {
+    if (notificationTimer) {
+      clearTimeout(notificationTimer);
+    }
+  });
 </script>
 
 <svelte:head>
@@ -45,15 +82,39 @@
 </svelte:head>
 
 <main>
+  {#if notification}
+    <div class="notification" role="status" aria-live="polite">
+      {notification}
+    </div>
+  {/if}
+
   <header class="hero">
-    <h1>Cap'n Web Coffee Inventory</h1>
-    <p>
-      This dashboard connects to a Cap'n Web RPC server over WebSocket to hydrate fixture data and
-      stay in sync with live stock updates.
-    </p>
-    {#if lastUpdated}
-      <p class="timestamp">Last update: {lastUpdated.toLocaleTimeString()}</p>
-    {/if}
+    <div class="hero-copy">
+      <h1>Cap'n Web Coffee Inventory</h1>
+      <p>
+        This dashboard connects to a Cap'n Web RPC server over WebSocket to hydrate fixture data and
+        stay in sync with live stock updates.
+      </p>
+      {#if lastUpdated}
+        <p class="timestamp">Last update: {lastUpdated.toLocaleTimeString()}</p>
+      {/if}
+    </div>
+
+    <div class="actions">
+      <button
+        type="button"
+        class="create-button"
+        on:click={handleCreate}
+        disabled={isCreating}
+      >
+        {#if isCreating}
+          Brewing new coffee...
+        {:else}
+          Brew a demo coffee
+        {/if}
+      </button>
+      <p class="actions-hint">Triggers a server-side creation and pushes updates to connected clients.</p>
+    </div>
   </header>
 
   <section class="controls" aria-label="Roast filter">
@@ -146,10 +207,31 @@
     box-sizing: border-box;
   }
 
+  .notification {
+    align-self: flex-start;
+    padding: 0.85rem 1.25rem;
+    border-radius: 0.85rem;
+    background: linear-gradient(135deg, rgba(94, 234, 212, 0.2), rgba(129, 140, 248, 0.25));
+    border: 1px solid rgba(94, 234, 212, 0.4);
+    color: rgba(226, 232, 240, 0.95);
+    font-weight: 500;
+    box-shadow: 0 12px 28px rgba(79, 70, 229, 0.25);
+  }
+
   .hero {
-    max-width: 720px;
+    width: 100%;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.75rem;
+  }
+
+  .hero-copy {
+    flex: 1 1 420px;
+    min-width: 260px;
+    max-width: 720px;
+    display: grid;
     gap: 1rem;
   }
 
@@ -159,7 +241,7 @@
     line-height: 1.05;
   }
 
-  .hero p {
+  .hero-copy p {
     margin: 0;
     color: rgba(226, 232, 240, 0.85);
     font-size: 1.05rem;
@@ -168,6 +250,44 @@
   .timestamp {
     font-size: 0.95rem;
     color: rgba(148, 163, 184, 0.9);
+  }
+
+  .actions {
+    display: grid;
+    gap: 0.65rem;
+    justify-items: flex-start;
+  }
+
+  .create-button {
+    background: linear-gradient(135deg, rgba(94, 234, 212, 0.65), rgba(59, 130, 246, 0.6));
+    border: 1px solid rgba(165, 243, 252, 0.65);
+    border-radius: 999px;
+    padding: 0.75rem 1.85rem;
+    color: #010409;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  }
+
+  .create-button:hover:enabled {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 40px rgba(94, 234, 212, 0.35);
+    filter: brightness(1.05);
+  }
+
+  .create-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+    box-shadow: none;
+  }
+
+  .actions-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(148, 163, 184, 0.8);
+    max-width: 260px;
   }
 
   .controls {
@@ -359,6 +479,20 @@
   @media (max-width: 640px) {
     main {
       padding: 2rem 1.25rem 3rem;
+    }
+
+    .hero {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .actions {
+      width: 100%;
+    }
+
+    .create-button {
+      width: 100%;
+      text-align: center;
     }
 
     .inventory,
