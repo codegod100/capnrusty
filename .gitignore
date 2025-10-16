@@ -9,3 +9,5 @@ dist
 .idea
 .wrangler
 build
+# mdBook build output
+docs/book

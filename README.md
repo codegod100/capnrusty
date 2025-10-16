@@ -57,6 +57,17 @@ server, Durable Object) converge automatically:
 - When you call `createDemoCoffee`, the server mutates the Automerge doc and broadcasts the resulting
   sync messages; every connected client receives the update and merges it into their local document.
 
+## Project documentation
+
+Additional notes on the Automerge integration live in the mdBook project under `docs/`:
+
+```bash
+cd docs
+mdbook serve --open
+```
+
+The book covers the architecture, client/server flows, and development workflow in greater detail.
+
 ## Building and previewing
 
 ```bash

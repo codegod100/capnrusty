@@ -1,0 +1,17 @@
+[book]
+title = "Cap'n Web Automerge Guide"
+description = "Documentation for the Automerge-powered replication used in this SvelteKit project."
+author = ["Capnrusty Team"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "coal"
+git-repository-url = "https://github.com/codegod100/capnrusty"
+additional-css = []
+
+[output.html.fold]
+enable = true
+
