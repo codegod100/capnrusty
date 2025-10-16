@@ -1,5 +1,10 @@
 import { RpcTarget, newWorkersRpcResponse } from 'capnweb';
-import type { DurableObjectNamespace, DurableObjectState, DurableObjectStorage } from '@cloudflare/workers-types';
+import type {
+  DurableObjectNamespace,
+  DurableObjectState,
+  DurableObjectStorage,
+  Fetcher
+} from '@cloudflare/workers-types';
 import { coffees as seedCoffees, type Coffee } from '../lib/data/fixtures';
 import { cloneCoffees, generateCoffee } from '../lib/server/coffeeGenerator';
 
@@ -78,6 +83,7 @@ class Subscription extends RpcTarget {
 
 interface Env {
   COFFEE_INVENTORY: DurableObjectNamespace;
+  STATIC_CONTENT?: Fetcher;
 }
 
 export default {
@@ -98,6 +104,28 @@ export default {
           'Access-Control-Allow-Headers': 'content-type'
         }
       });
+    }
+
+    if (env.STATIC_CONTENT) {
+      const response = await env.STATIC_CONTENT.fetch(request);
+
+      const accept = request.headers.get('accept') ?? '';
+      if (
+        response.status === 404 &&
+        request.method === 'GET' &&
+        accept.includes('text/html')
+      ) {
+        const indexUrl = new URL('/index.html', url.origin);
+        const indexRequest = new Request(indexUrl.toString(), {
+          method: 'GET',
+          headers: new Headers({
+            accept: 'text/html'
+          })
+        });
+        return env.STATIC_CONTENT.fetch(indexRequest);
+      }
+
+      return response;
     }
 
     return new Response('Not Found', { status: 404 });

@@ -22,15 +22,19 @@ streams live updates (simulated inventory changes) to the browser so the dashboa
 
 When you want to exercise the Cloudflare Durable Object implementation:
 
-1. Build the static Svelte assets (Wrangler serves the output of `pnpm build`):
+1. Build the SvelteKit assets (Wrangler serves the output of `.svelte-kit/output/client`):
    ```bash
    pnpm build
    ```
-2. Run Wrangler in a second terminal to serve both the assets and the `/rpc` endpoint:
-   ```bash
-   pnpm wrangler dev --local --port 8787
-   ```
-3. In another terminal, run the SvelteKit preview server or deploy the built assets with your adapter.
+2. Run Wrangler to host the Worker, Durable Object, and built client bundle:
+ ```bash
+ pnpm wrangler dev --local --port 8787
+ ```
+   Visit http://127.0.0.1:8787/ to load the bundled UI and interact with the real Durable Object.
+
+> **Note:** On the Cloudflare free plan, Durable Object migrations must use `new_sqlite_classes`. The
+> default Wrangler config already does this (`wrangler.toml`). If you rename the class or add new
+> migrations, keep the `new_sqlite_classes` format so deployment succeeds.
 
 ## Configuration
 

@@ -9,4 +9,8 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["CoffeeInventoryDurable"]
+new_sqlite_classes = ["CoffeeInventoryDurable"]
+
+[assets]
+binding = "STATIC_CONTENT"
+directory = "build"
