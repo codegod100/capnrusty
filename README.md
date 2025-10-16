@@ -44,6 +44,19 @@ When you want to exercise the Cloudflare Durable Object implementation:
 - `CAPNWEB_USE_DURABLE=true` – run SvelteKit against a real Durable Object even in dev (mock server will
   remain off; point `VITE_CAPNWEB_WS` at your Worker).
 
+## Automerge sync
+
+Inventory state is replicated with [Automerge](https://automerge.org/) so multiple peers (browser, mock
+server, Durable Object) converge automatically:
+
+- The mock Node server and the Durable Object both host an Automerge document and expose a Cap'n Web RPC
+  method `openSyncChannel`.
+- The browser keeps its own local Automerge doc (`src/lib/stores/coffee.ts`) and exchanges sync messages
+  over the existing WebSocket session. Initial state and subsequent edits are streamed as CRDT sync
+  messages, so the UI updates immediately without polling.
+- When you call `createDemoCoffee`, the server mutates the Automerge doc and broadcasts the resulting
+  sync messages; every connected client receives the update and merges it into their local document.
+
 ## Building and previewing
 
 ```bash

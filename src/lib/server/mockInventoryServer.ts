@@ -2,12 +2,11 @@ import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import { RpcTarget, newWebSocketRpcSession, nodeHttpBatchRpcResponse } from 'capnweb';
 import { coffees as seedCoffees, type Coffee } from '$lib/data/fixtures';
-import { cloneCoffees, generateCoffee } from './coffeeGenerator';
+import { generateCoffee } from './coffeeGenerator';
+import { AutomergeInventory, SyncSession } from './automergeInventory';
 
 const API_PATH = '/rpc';
 const PORT = Number.parseInt(process.env.VITE_CAPNWEB_PORT ?? process.env.CAPNWEB_PORT ?? '8787', 10);
-
-type CoffeeListener = (items: Coffee[]) => void;
 
 class Subscription extends RpcTarget {
   #dispose: () => void;
@@ -23,48 +22,43 @@ class Subscription extends RpcTarget {
 }
 
 class MockCoffeeInventoryApi extends RpcTarget {
-  #listeners = new Set<CoffeeListener>();
-  #coffees: Coffee[];
+  #inventory: AutomergeInventory;
 
-  constructor(initial: Coffee[]) {
+  constructor(seed: Coffee[]) {
     super();
-    this.#coffees = cloneCoffees(initial);
+    this.#inventory = AutomergeInventory.fromSeed(seed);
   }
 
-  listCoffees(): Coffee[] {
-    return cloneCoffees(this.#coffees);
+  async listCoffees(): Promise<Coffee[]> {
+    return this.#inventory.snapshot;
   }
 
-  getCoffee(id: string): Coffee | undefined {
-    return this.#coffees.find((coffee) => coffee.id === id);
+  async getCoffee(id: string): Promise<Coffee | undefined> {
+    return this.#inventory.getCoffee(id);
   }
 
-  subscribeToCoffees(listener: CoffeeListener): Subscription {
-    listener(cloneCoffees(this.#coffees));
-    this.#listeners.add(listener);
-    return new Subscription(() => this.#listeners.delete(listener));
+  async subscribeToCoffees(listener: (items: Coffee[]) => void): Promise<Subscription> {
+    const unsubscribe = this.#inventory.subscribe(listener);
+    return new Subscription(unsubscribe);
   }
 
-  createDemoCoffee(): Coffee {
-    const created = generateCoffee();
-    this.#coffees.unshift(created);
-    this.#notify();
-    return { ...created, tastingNotes: [...created.tastingNotes] };
+  async createDemoCoffee(): Promise<Coffee> {
+    return this.#inventory.createDemoCoffee(generateCoffee);
   }
 
-  bumpRandomStock(): void {
-    if (this.#coffees.length === 0) return;
-    const target = this.#coffees[Math.floor(Math.random() * this.#coffees.length)];
-    const delta = Math.random() < 0.5 ? -1 : 1;
-    target.stock = Math.max(0, target.stock + delta);
-    this.#notify();
+  async bumpRandomStock(): Promise<void> {
+    await this.#inventory.mutate((doc) => {
+      const coffees = doc.coffees ?? [];
+      if (coffees.length === 0) return;
+      const index = Math.floor(Math.random() * coffees.length);
+      const target = coffees[index];
+      const delta = Math.random() < 0.5 ? -1 : 1;
+      target.stock = Math.max(0, (target.stock ?? 0) + delta);
+    });
   }
 
-  #notify(): void {
-    const snapshot = cloneCoffees(this.#coffees);
-    for (const listener of this.#listeners) {
-      listener(snapshot);
-    }
+  async openSyncChannel(callback: (message: string) => void): Promise<SyncSession> {
+    return this.#inventory.registerSync(callback);
   }
 }
 
@@ -121,7 +115,7 @@ function startServer(): Promise<void> {
     });
 
     setInterval(() => {
-      api.bumpRandomStock();
+      void api.bumpRandomStock();
     }, 8000).unref();
   });
 

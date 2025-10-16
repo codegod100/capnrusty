@@ -104,7 +104,7 @@
       <button
         type="button"
         class="create-button"
-        on:click={handleCreate}
+        onclick={handleCreate}
         disabled={isCreating}
       >
         {#if isCreating}
@@ -122,7 +122,7 @@
       <button
         type="button"
         class:active={filter === roast}
-        on:click={() => {
+        onclick={() => {
           filter = roast;
           selectedId = null;
         }}
@@ -143,7 +143,7 @@
               <button
                 type="button"
                 class:selected={selectedId === coffee.id}
-                on:click={() => setSelection(coffee)}
+                onclick={() => setSelection(coffee)}
                 aria-pressed={selectedId === coffee.id}
               >
                 <span class="name">{coffee.name}</span>
