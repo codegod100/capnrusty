@@ -7,6 +7,7 @@ import type {
 import { coffees as seedCoffees, type Coffee } from '$lib/data/fixtures';
 import { generateCoffee } from '$lib/server/coffeeGenerator';
 import { AutomergeInventory, SyncSession } from '$lib/server/automergeInventory';
+import type { CoffeeNotificationTarget } from '$lib/types/inventory';
 
 class Subscription extends RpcTarget {
   #dispose: () => void;
@@ -42,8 +43,14 @@ class InventoryApi extends RpcTarget {
     return new Subscription(unsubscribe);
   }
 
-  async createDemoCoffee(): Promise<Coffee> {
-    return this.#inventory.createDemoCoffee(generateCoffee);
+  async createDemoCoffee(notifier: CoffeeNotificationTarget): Promise<Coffee> {
+    const coffee = await this.#inventory.createDemoCoffee(generateCoffee);
+    try {
+      await notifier.show(`New coffee "${coffee.name}" is ready to explore.`);
+    } catch (error) {
+      console.warn('Failed to deliver notification to client.', error);
+    }
+    return coffee;
   }
 
   async openSyncChannel(callback: (message: string) => void): Promise<SyncSession> {
@@ -146,12 +153,23 @@ export class CoffeeInventoryDurable {
 
     const stored = await this.#state.storage.get<ArrayBuffer>('doc');
     const persist = async (binary: Uint8Array) => {
-      await this.#state.storage.put('doc', binary);
+      const view = binary.byteOffset === 0 && binary.byteLength === binary.buffer.byteLength
+        ? binary.buffer
+        : binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength);
+      await this.#state.storage.put('doc', view);
     };
 
-    this.#inventory = stored
-      ? AutomergeInventory.fromBinary(new Uint8Array(stored), persist)
-      : AutomergeInventory.fromSeed(seedCoffees, persist);
+    if (stored && stored.byteLength > 0) {
+      try {
+        this.#inventory = AutomergeInventory.fromBinary(new Uint8Array(stored), persist);
+      } catch (error) {
+        console.warn('Failed to load Automerge inventory from storage; recreating from seed.', error);
+        await this.#state.storage.delete('doc');
+        this.#inventory = AutomergeInventory.fromSeed(seedCoffees, persist);
+      }
+    } else {
+      this.#inventory = AutomergeInventory.fromSeed(seedCoffees, persist);
+    }
 
     await this.#scheduleNextAlarm();
     return this.#inventory;

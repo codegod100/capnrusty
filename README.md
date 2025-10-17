@@ -54,8 +54,9 @@ server, Durable Object) converge automatically:
 - The browser keeps its own local Automerge doc (`src/lib/stores/coffee.ts`) and exchanges sync messages
   over the existing WebSocket session. Initial state and subsequent edits are streamed as CRDT sync
   messages, so the UI updates immediately without polling.
-- When you call `createDemoCoffee`, the server mutates the Automerge doc and broadcasts the resulting
-  sync messages; every connected client receives the update and merges it into their local document.
+- When you call `createDemoCoffee`, the browser passes over a client-side notification target. The
+  server uses it to announce the new roast, then mutates the Automerge doc and broadcasts the resulting
+  sync messages so every connected client merges the update into their local document.
 
 ## Project documentation
 

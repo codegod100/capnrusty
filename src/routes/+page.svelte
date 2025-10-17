@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { RpcTarget } from 'capnweb';
   import type { Coffee, RoastProfile } from '$lib/data/fixtures';
   import { coffeesStore, createDemoCoffee } from '$lib/stores/coffee';
+  import type { CoffeeNotificationTarget } from '$lib/types/inventory';
 
   type RoastFilter = RoastProfile | 'all';
 
@@ -50,14 +52,21 @@
     }, 5000);
   };
 
+  class UiNotificationTarget extends RpcTarget implements CoffeeNotificationTarget {
+    show(message: string) {
+      triggerNotification(message);
+    }
+  }
+
+  const notificationTarget = new UiNotificationTarget();
+
   const handleCreate = async () => {
     if (isCreating) return;
 
     isCreating = true;
     try {
-      const coffee = await createDemoCoffee();
+      const coffee = await createDemoCoffee(notificationTarget);
       selectedId = coffee.id;
-      triggerNotification(`New coffee "${coffee.name}" is ready to explore.`);
     } catch (err) {
       console.error('Failed to create demo coffee.', err);
       triggerNotification('Could not brew a new coffee right now. Please try again.');

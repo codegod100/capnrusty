@@ -1,7 +1,12 @@
+import type { RpcTarget } from 'capnweb';
 import type { Coffee } from '$lib/data/fixtures';
 
 export interface CoffeeSubscription {
   close(): void;
+}
+
+export interface CoffeeNotificationTarget extends RpcTarget {
+  show(message: string): void | Promise<void>;
 }
 
 export interface CoffeeSyncSession {
@@ -13,6 +18,6 @@ export interface CoffeeInventoryApi {
   listCoffees(): Promise<Coffee[]>;
   getCoffee(id: string): Promise<Coffee | undefined>;
   subscribeToCoffees(callback: (items: Coffee[]) => void): Promise<CoffeeSubscription>;
-  createDemoCoffee(): Promise<Coffee>;
+  createDemoCoffee(notifier: CoffeeNotificationTarget): Promise<Coffee>;
   openSyncChannel(callback: (encodedMessage: string) => void): Promise<CoffeeSyncSession>;
 }

@@ -3,7 +3,12 @@ import { readable } from 'svelte/store';
 import { newWebSocketRpcSession } from 'capnweb';
 import * as Automerge from '@automerge/automerge';
 import type { Coffee } from '$lib/data/fixtures';
-import type { CoffeeInventoryApi, CoffeeSyncSession, CoffeeSubscription } from '$lib/types/inventory';
+import type {
+  CoffeeInventoryApi,
+  CoffeeNotificationTarget,
+  CoffeeSyncSession,
+  CoffeeSubscription
+} from '$lib/types/inventory';
 import { base64ToBytes, bytesToBase64 } from '$lib/automerge/base64';
 import { docToCoffees, initInventoryDoc } from '$lib/automerge/inventory';
 
@@ -129,9 +134,9 @@ export const coffeesStore = readable<Coffee[]>([], (set) => {
   };
 });
 
-export async function createDemoCoffee() {
+export async function createDemoCoffee(notifier: CoffeeNotificationTarget) {
   if (!clientStub) {
     throw new Error('Inventory service is still connecting. Please try again in a moment.');
   }
-  return clientStub.createDemoCoffee();
+  return clientStub.createDemoCoffee(notifier);
 }

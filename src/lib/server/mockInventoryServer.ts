@@ -4,6 +4,7 @@ import { RpcTarget, newWebSocketRpcSession, nodeHttpBatchRpcResponse } from 'cap
 import { coffees as seedCoffees, type Coffee } from '$lib/data/fixtures';
 import { generateCoffee } from './coffeeGenerator';
 import { AutomergeInventory, SyncSession } from './automergeInventory';
+import type { CoffeeNotificationTarget } from '$lib/types/inventory';
 
 const API_PATH = '/rpc';
 const PORT = Number.parseInt(process.env.VITE_CAPNWEB_PORT ?? process.env.CAPNWEB_PORT ?? '8787', 10);
@@ -42,8 +43,14 @@ class MockCoffeeInventoryApi extends RpcTarget {
     return new Subscription(unsubscribe);
   }
 
-  async createDemoCoffee(): Promise<Coffee> {
-    return this.#inventory.createDemoCoffee(generateCoffee);
+  async createDemoCoffee(notifier: CoffeeNotificationTarget): Promise<Coffee> {
+    const coffee = await this.#inventory.createDemoCoffee(generateCoffee);
+    try {
+      await notifier.show(`New coffee "${coffee.name}" is ready to explore.`);
+    } catch (error) {
+      console.warn('Failed to deliver notification to client.', error);
+    }
+    return coffee;
   }
 
   async bumpRandomStock(): Promise<void> {

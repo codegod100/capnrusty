@@ -10,7 +10,8 @@ Both back ends expose the same Cap'n Web surface. Their responsibilities:
 - **State**: In-memory Automerge document seeded with fixture data.
 - **Methods**:
   - `listCoffees`, `getCoffee`, `subscribeToCoffees`: for compatibility with pre-Automerge flows.
-  - `createDemoCoffee`: mutates the document using `AutomergeInventory#createDemoCoffee`.
+  - `createDemoCoffee`: receives a `CoffeeNotificationTarget`, announces the new roast, then mutates the
+    document via `AutomergeInventory#createDemoCoffee`.
   - `openSyncChannel`: registers a new Automerge sync peer via `AutomergeInventory#registerSync`.
   - `bumpRandomStock`: periodic Automerge mutation to simulate activity.
 
